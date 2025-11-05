@@ -83,10 +83,11 @@ const doctorSchema = new mongoose.Schema(
       },
     ],
 
-    availableTime: {
-      start: { type: String },
-      end: { type: String },
-    },
+   availableTime: {
+  start: { type: String, default: "09:00" },
+  end: { type: String, default: "17:00" }
+},
+
 
     roomId: {
       type: mongoose.Schema.Types.ObjectId,

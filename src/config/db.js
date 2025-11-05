@@ -26,4 +26,4 @@ async function connectionWithDb() {
   return cached.conn;
 }
 
-module.exports = connectionWithDb;
+module.exports = connectionWithDb

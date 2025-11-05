@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Patient = require("../models/Patient");
+const Doctor = require("../models/Doctor")
 const bcrypt = require("bcrypt");
 const validator = require("validator");
 const generateToken = require("../utils/generatetoken");
@@ -9,7 +10,7 @@ exports.register = async (req, res) => {
   const { userName, emailAddress, password, cnic, role } = req.body;
 
   try {
-    if (!userName || !emailAddress || !password || !cnic || !role) {
+    if (!userName || !emailAddress || !password || !cnic) {
       return res.status(400).json({
         success: false,
         message: "Please fill all required fields",
@@ -44,7 +45,7 @@ exports.register = async (req, res) => {
       Number(process.env.SALTED_ROUNDS)
     );
 
-    const user = await User.create({
+    let user = await User.create({
       userName,
       emailAddress,
       password: hashedPassword,
@@ -55,9 +56,14 @@ exports.register = async (req, res) => {
     try {
       if (user.role === "Patient") {
         await Patient.create({ userId: user._id });
-      }
-      if (user.role === "Doctor") {
+      } else if (user.role === "Doctor") {
         await Doctor.create({ userId: user._id });
+      } else if (user.role === "Staff") {
+        user = await User.findByIdAndUpdate(
+          user._id,
+          { isProfileComplete: true },
+          { new: true }
+        );
       }
     } catch (relatedError) {
       await User.findByIdAndDelete(user._id);
@@ -67,7 +73,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    const token = await generateToken(user._id , user.role);
+    const token = await generateToken(user._id, user.role);
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -82,13 +88,14 @@ exports.register = async (req, res) => {
       user: userWithoutPass,
     });
   } catch (error) {
-    console.error("❌ Registration Error:", error.message);
+    console.error("Registration Error:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Server error during registration",
     });
   }
 };
+
 
 exports.login = async (req, res) => {
   try {
@@ -131,7 +138,7 @@ exports.logout = async (req, res) => {
     res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",  // required for cross-site cookie deletion
+      sameSite: "none",
     });
     res.json({ success: true, message: "Logout Successful" });
   } catch (error) {
@@ -142,11 +149,48 @@ exports.logout = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const userId = req.user?._id;
+    const userRole = req.user?.role;
 
-    if (!userId) {
+    if (!userId || !userRole) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized access. User not found in request.",
+      });
+    }
+
+    if (userRole === "Patient") {
+      const patient = await Patient.findOne({ userId })
+        .populate("userId");
+
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: "Patient not found for this user ID",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Patient details fetched successfully",
+        user: patient,
+      });
+    }
+
+    if (userRole === "Doctor") {
+      const doctor = await Doctor.findOne({ userId })
+        .populate("userId", "userName emailAddress role");
+
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: "Doctor not found for this user ID",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Doctor details fetched successfully",
+        user: doctor,
       });
     }
 
@@ -164,11 +208,13 @@ exports.getMe = async (req, res) => {
       message: "User details fetched successfully",
       user,
     });
+
   } catch (error) {
-    console.error("❌ Error in getMe:", error.message);
+    console.error("Error in getMe:", error.message);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
     });
   }
 };

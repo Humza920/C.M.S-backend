@@ -6,18 +6,21 @@ const generateToken = require("../utils/generatetoken");
 // const {uploadToCloudinary} = require("../config/cloudinary")
 
 exports.register = async (req, res) => {
-  const { userName, emailAddress, password , cnic } = req.body;
-  // const file = req.file
-  // console.log(file);
-  
+  const { userName, emailAddress, password, cnic, role } = req.body;
 
   try {
-    if (!userName || !emailAddress || !password || !cnic) {
-      return res.status(400).json({ success: false, message: "Please fill all required fields" });
+    if (!userName || !emailAddress || !password || !cnic || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill all required fields",
+      });
     }
 
     if (!validator.isEmail(emailAddress)) {
-      return res.status(400).json({ success: false, message: "Please enter a valid email address" });
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
     }
 
     if (!validator.isStrongPassword(password)) {
@@ -29,40 +32,61 @@ exports.register = async (req, res) => {
     }
 
     const existingUser = await User.findOne({ emailAddress });
-    if (existingUser)
-      return res.status(400).json({ success: false, message: "User already exists with this email" });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email",
+      });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, Number(process.env.SALTED_ROUNDS));
-
-    // const uploadResult = await uploadToCloudinary(file.buffer)
-
+    const hashedPassword = await bcrypt.hash(
+      password,
+      Number(process.env.SALTED_ROUNDS)
+    );
 
     const user = await User.create({
       userName,
       emailAddress,
       password: hashedPassword,
-      cnic
+      cnic,
+      role,
     });
 
-    const token = await generateToken(user._id);
+    try {
+      if (user.role === "Patient") {
+        await Patient.create({ userId: user._id });
+      }
+      if (user.role === "Doctor") {
+        await Doctor.create({ userId: user._id });
+      }
+    } catch (relatedError) {
+      await User.findByIdAndDelete(user._id);
+      return res.status(500).json({
+        success: false,
+        message: `Error creating ${user.role} profile: ${relatedError.message}`,
+      });
+    }
+
+    const token = await generateToken(user._id , user.role);
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: 'none',
+      sameSite: "none",
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
     const { password: _, ...userWithoutPass } = user._doc;
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Signup Successful",
+      message: `${user.role} registration successful`,
       user: userWithoutPass,
     });
-
-
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Registration Error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error during registration",
+    });
   }
 };
 

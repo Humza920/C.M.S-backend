@@ -150,7 +150,6 @@ exports.getMe = async (req, res) => {
   try {
     const userId = req.user?._id;
     const userRole = req.user?.role;
-
     if (!userId || !userRole) {
       return res.status(401).json({
         success: false,
@@ -172,13 +171,14 @@ exports.getMe = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Patient details fetched successfully",
-        user: patient,
+        patient,
       });
     }
 
     if (userRole === "Doctor") {
       const doctor = await Doctor.findOne({ userId })
-        .populate("userId", "userName emailAddress role");
+        .populate("userId");
+
 
       if (!doctor) {
         return res.status(404).json({
@@ -190,7 +190,7 @@ exports.getMe = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Doctor details fetched successfully",
-        user: doctor,
+        doctor,
       });
     }
 
@@ -206,7 +206,7 @@ exports.getMe = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "User details fetched successfully",
-      user,
+      staff: user
     });
 
   } catch (error) {
@@ -214,6 +214,128 @@ exports.getMe = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.completeProfile = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access. User not found in request.",
+      });
+    }
+
+    if (userRole === "Patient") {
+      const {
+        age,
+        gender,
+        bloodGroup,
+        address,
+        profileImg,
+        phoneNumber,
+        emergencyContact,
+        medicalHistory,
+        allergies,
+      } = req.body;
+
+      const patient = await Patient.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            age,
+            gender,
+            bloodGroup,
+            address,
+            profileImg,
+            phoneNumber,
+            emergencyContact,
+            medicalHistory,
+            allergies,
+          },
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: "Patient record not found. Please contact admin.",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Patient profile updated successfully.",
+        data: patient,
+      });
+    }
+
+    if (userRole === "Doctor") {
+      const {
+        gender,
+        phoneNumber,
+        specialization,
+        qualification,
+        experience,
+        about,
+        profileImg,
+        fees,
+        availableDays,
+        availableTime,
+        location,
+        averageRating,
+      } = req.body;
+
+      const doctor = await Doctor.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            gender,
+            phoneNumber,
+            specialization,
+            qualification,
+            experience,
+            about,
+            profileImg,
+            fees,
+            availableDays,
+            availableTime,
+            location,
+            averageRating,
+          },
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: "Doctor record not found. Please contact admin.",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Doctor profile updated successfully.",
+        data: doctor,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Invalid user role. Only Doctor or Patient allowed.",
+    });
+  } catch (error) {
+    console.error("Error in completeProfile:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
       error: error.message,
     });
   }

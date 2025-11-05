@@ -4,7 +4,7 @@ const doctorSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
+      ref: "User",
       required: true,
     },
 
@@ -20,14 +20,6 @@ const doctorSchema = new mongoose.Schema(
       match: [/^[0-9]{11}$/, "Please enter a valid phone number (11 digits)"],
     },
 
-    cnic: {
-      type: String,
-      match: [
-        /^[0-9]{5}-[0-9]{7}-[0-9]{1}$/,
-        "Please enter a valid CNIC (e.g. 12345-1234567-1)",
-      ],
-      unique: true,
-    },
 
     specialization: {
       type: String,

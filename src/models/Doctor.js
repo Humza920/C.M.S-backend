@@ -82,6 +82,7 @@ const doctorSchema = new mongoose.Schema(
     roomId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "rooms",
+      required: [true, "Room is required for invite"]
     },
 
     location: {

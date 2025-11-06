@@ -2,44 +2,38 @@ const User = require("../models/User");
 const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor")
 const Invite = require("../models/Invite")
-
 const bcrypt = require("bcrypt");
 const validator = require("validator");
 const generateToken = require("../utils/generatetoken");
-const {hashToken} = require("../utils/token")
+const { hashToken } = require("../utils/token")
 // const {uploadToCloudinary} = require("../config/cloudinary")
+const mongoose = require("mongoose");
+const Room = require("../models/Room")
+
 exports.register = async (req, res) => {
   const { userName, emailAddress, password, cnic, invitetoken, role } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
+
     if (!userName || !emailAddress || !password || !cnic) {
-      return res.status(400).json({
-        success: false,
-        message: "Please fill all required fields",
-      });
+      throw new Error("Please fill all required fields");
     }
 
     if (!validator.isEmail(emailAddress)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please enter a valid email address",
-      });
+      throw new Error("Please enter a valid email address");
     }
 
     if (!validator.isStrongPassword(password)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password must be strong (uppercase, lowercase, number, symbol, 8+ characters)",
-      });
+      throw new Error(
+        "Password must be strong (uppercase, lowercase, number, symbol, 8+ characters)"
+      );
     }
 
-    const existingUser = await User.findOne({ emailAddress });
+    const existingUser = await User.findOne({ emailAddress }).session(session);
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this email",
-      });
+      throw new Error("User already exists with this email");
     }
 
     const hashedPassword = await bcrypt.hash(
@@ -47,55 +41,103 @@ exports.register = async (req, res) => {
       Number(process.env.SALTED_ROUNDS)
     );
 
-    let user;
-    let invite;
-if (invitetoken && role === "Doctor") {
-  const tokenHash = hashToken(invitetoken);
-  
-  invite = await Invite.findOne({
-    email: emailAddress,
-    tokenHash,
-    status: "Pending"
-  });
+    let user, invite, doctor, room;
+    if (invitetoken && role === "Doctor") {
+      const tokenHash = hashToken(invitetoken);
 
+      invite = await Invite.findOne({
+        email: emailAddress,
+        tokenHash,
+        status: "Pending",
+      }).session(session);
 
-      if (!invitetoken) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid or expired invitation link",
-        });
+      if (!invite) {
+        throw new Error("Invalid or expired invitation link");
       }
 
-      user = await User.create({
-        userName,
-        emailAddress,
-        password: hashedPassword,
-        cnic,
-        role: "Doctor",
-        isProfileComplete: false,
-      });
+      room = await Room.create(
+        [
+          {
+            roomNumber: invite.roomNumber,
+          },
+        ],
+        { session }
+      );
+      room = room[0];
 
-      await Doctor.create({
-        userId: user._id,
-        salary: invite.salary ,
-        availableDays: invite.invitedDays,
-        availableTime: invite.invitedTime,
-      });
+      user = await User.create(
+        [
+          {
+            userName,
+            emailAddress,
+            password: hashedPassword,
+            cnic,
+            role: "Doctor",
+            isProfileComplete: false,
+          },
+        ],
+        { session }
+      );
+      user = user[0];
 
+      doctor = await Doctor.create(
+        [
+          {
+            userId: user._id,
+            salary: invite.salary,
+            roomId: room._id,
+            availableDays: invite.invitedDays,
+            availableTime: invite.invitedTime,
+          },
+        ],
+        { session }
+      );
+      doctor = doctor[0];
+
+      await Room.updateOne(
+        { _id: room._id },
+        {
+          $push: {
+            schedules: {
+              doctor: doctor._id,
+              day: invite.invitedDays,
+              startTime: invite.invitedTime?.start || "09:00 AM",
+              endTime: invite.invitedTime?.end || "05:00 PM",
+            },
+          },
+        },
+        { session }
+      );
       invite.status = "Accepted";
-      await invite.save();
+      await invite.save({ session });
     }
 
     else {
-      user = await User.create({
-        userName,
-        emailAddress,
-        password: hashedPassword,
-        cnic,
-        role: "Patient",
-      });
-      await Patient.create({ userId: user._id });
+      user = await User.create(
+        [
+          {
+            userName,
+            emailAddress,
+            password: hashedPassword,
+            cnic,
+            role: "Patient",
+          },
+        ],
+        { session }
+      );
+      user = user[0];
+
+      await Patient.create(
+        [
+          {
+            userId: user._id,
+          },
+        ],
+        { session }
+      );
     }
+    await session.commitTransaction();
+    session.endSession();
 
     const tokenJWT = await generateToken(user._id, user.role);
     res.cookie("token", tokenJWT, {
@@ -105,13 +147,16 @@ if (invitetoken && role === "Doctor") {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    const { password: _, ...userWithoutPass } = user._doc;
+    const { password: _, ...userWithoutPass } = user._doc || user;
     return res.status(201).json({
       success: true,
       message: `${user.role} registration successful`,
       user: userWithoutPass,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Registration Error:", error.message);
     return res.status(500).json({
       success: false,
@@ -119,6 +164,7 @@ if (invitetoken && role === "Doctor") {
     });
   }
 };
+
 
 
 

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const doctorInviteSchema = new mongoose.Schema({
+const inviteSchema = new mongoose.Schema({
   email: { type: String, required: true, lowercase: true, unique: true },
   invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   role: { type: String, default: "Doctor" },
@@ -12,10 +12,10 @@ const doctorInviteSchema = new mongoose.Schema({
     end: String
   },
 
-  status: { type: String, enum: ["Pending","Accepted","Rejected" , "Used"], default: "Pending" },
+  status: { type: String, enum: ["Pending","Accepted", "Used"], default: "Pending" },
   tokenHash: { type: String, required: true, unique: true },
   tokenExpiresAt: { type: Date, required: true },
 
 }, { timestamps: true });
 
-module.exports = mongoose.model("DoctorInvite", doctorInviteSchema);
+module.exports = mongoose.model("Invite", inviteSchema);

@@ -1,13 +1,15 @@
 const User = require("../models/User");
 const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor")
+const Invite = require("../models/Invite")
+
 const bcrypt = require("bcrypt");
 const validator = require("validator");
 const generateToken = require("../utils/generatetoken");
+const {hashToken} = require("../utils/token")
 // const {uploadToCloudinary} = require("../config/cloudinary")
-
 exports.register = async (req, res) => {
-  const { userName, emailAddress, password, cnic, role } = req.body;
+  const { userName, emailAddress, password, cnic, invitetoken, role } = req.body;
 
   try {
     if (!userName || !emailAddress || !password || !cnic) {
@@ -45,36 +47,58 @@ exports.register = async (req, res) => {
       Number(process.env.SALTED_ROUNDS)
     );
 
-    let user = await User.create({
-      userName,
-      emailAddress,
-      password: hashedPassword,
-      cnic,
-      role,
-    });
+    let user;
+    let invite;
+if (invitetoken && role === "Doctor") {
+  const tokenHash = hashToken(invitetoken);
+  
+  invite = await Invite.findOne({
+    email: emailAddress,
+    tokenHash,
+    status: "Pending"
+  });
 
-    try {
-      if (user.role === "Patient") {
-        await Patient.create({ userId: user._id });
-      } else if (user.role === "Doctor") {
-        await Doctor.create({ userId: user._id });
-      } else if (user.role === "Staff") {
-        user = await User.findByIdAndUpdate(
-          user._id,
-          { isProfileComplete: true },
-          { new: true }
-        );
+
+      if (!invitetoken) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired invitation link",
+        });
       }
-    } catch (relatedError) {
-      await User.findByIdAndDelete(user._id);
-      return res.status(500).json({
-        success: false,
-        message: `Error creating ${user.role} profile: ${relatedError.message}`,
+
+      user = await User.create({
+        userName,
+        emailAddress,
+        password: hashedPassword,
+        cnic,
+        role: "Doctor",
+        isProfileComplete: false,
       });
+
+      await Doctor.create({
+        userId: user._id,
+        salary: invite.salary ,
+        availableDays: invite.invitedDays,
+        availableTime: invite.invitedTime,
+      });
+
+      invite.status = "Accepted";
+      await invite.save();
     }
 
-    const token = await generateToken(user._id, user.role);
-    res.cookie("token", token, {
+    else {
+      user = await User.create({
+        userName,
+        emailAddress,
+        password: hashedPassword,
+        cnic,
+        role: "Patient",
+      });
+      await Patient.create({ userId: user._id });
+    }
+
+    const tokenJWT = await generateToken(user._id, user.role);
+    res.cookie("token", tokenJWT, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
@@ -95,6 +119,7 @@ exports.register = async (req, res) => {
     });
   }
 };
+
 
 
 exports.login = async (req, res) => {

@@ -14,14 +14,13 @@ exports.checkRoomAvailability = async (req, res, next) => {
     function isTimeOverlap(start1, end1, start2, end2) {
       const s1 = toMinutes(start1);
       const e1 = toMinutes(end1);
-      const s2 = toMinutes(start2);
+      const s2 = toMinutes(start2)
       const e2 = toMinutes(end2);
       return s1 < e2 && e1 > s2;
     }
 
     for (const room of rooms) {
       for (const schedule of room.schedules) {
-        // ✅ Check agar koi common day hai between invite days & schedule days
         const hasCommonDay = schedule.day.some((d) =>
           invitedDays.includes(d)
         );
@@ -37,7 +36,7 @@ exports.checkRoomAvailability = async (req, res, next) => {
           ) {
             return res.status(400).json({
               success: false,
-              message: `❌ Time conflict! ${schedule.day.join(
+              message: `Time conflict! ${schedule.day.join(
                 ", "
               )} between ${schedule.startTime}-${schedule.endTime} already booked.`,
             });
@@ -46,7 +45,6 @@ exports.checkRoomAvailability = async (req, res, next) => {
       }
     }
 
-    // ✅ No conflicts → proceed
     next();
   } catch (err) {
     console.error("Room availability check failed:", err.message);

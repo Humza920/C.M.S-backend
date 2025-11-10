@@ -3,7 +3,10 @@ const cors = require("cors")
 const cookieParser = require("cookie-parser")
 const authRouter = require("./routes/authRoutes")
 const inviteRouter = require("./routes/inviteRoutes")
-// const dashboardRouter = require("./routes/dashboardRoutes")
+const appointmentRouter = require("./routes/appointmentRoutes")
+const dashboardRouter = require("./routes/dashboardRoutes")
+const patientRouter = require("./routes/patientRoutes")
+const doctorRouter = require("./routes/doctorRoutes")
 
 
 const app = express()
@@ -19,9 +22,14 @@ app.use(
 app.use(cookieParser())
 app.use("/api/auth", authRouter)
 app.use("/api/invite" , inviteRouter)
+app.use("/api/appointment" , appointmentRouter)
+app.use("/api/dashboard", dashboardRouter)
+app.use("/api/patient",patientRouter)
+app.use("/api/doctor",doctorRouter)
+
+
 // app.use("/api/income", incomeRouter)
 // app.use("/api/expense", expenseRouter)
-// app.use("/api/dashboard", dashboardRouter)
 
 
 

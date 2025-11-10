@@ -242,7 +242,7 @@ exports.getMe = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Patient details fetched successfully",
-        patient,
+        data : patient,
       });
     }
 
@@ -261,7 +261,7 @@ exports.getMe = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Doctor details fetched successfully",
-        doctor,
+        data :  doctor,
       });
     }
 
@@ -277,7 +277,7 @@ exports.getMe = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "User details fetched successfully",
-      staff: user
+      data :  user
     });
 
   } catch (error) {
@@ -308,7 +308,7 @@ exports.completeProfile = async (req, res) => {
         gender,
         bloodGroup,
         address,
-        profileImg,
+        // profileImg,
         phoneNumber,
         emergencyContact,
         medicalHistory,
@@ -323,7 +323,7 @@ exports.completeProfile = async (req, res) => {
             gender,
             bloodGroup,
             address,
-            profileImg,
+            // profileImg,
             phoneNumber,
             emergencyContact,
             medicalHistory,
@@ -339,6 +339,9 @@ exports.completeProfile = async (req, res) => {
           message: "Patient record not found. Please contact admin.",
         });
       }
+
+      // ✅ Mark profile as complete in User model
+      await User.findByIdAndUpdate(userId, { isProfileComplete: true });
 
       return res.status(200).json({
         success: true,
@@ -391,6 +394,9 @@ exports.completeProfile = async (req, res) => {
         });
       }
 
+      // ✅ Mark profile as complete in User model
+      await User.findByIdAndUpdate(userId, { isProfileComplete: true });
+
       return res.status(200).json({
         success: true,
         message: "Doctor profile updated successfully.",
@@ -411,3 +417,5 @@ exports.completeProfile = async (req, res) => {
     });
   }
 };
+
+

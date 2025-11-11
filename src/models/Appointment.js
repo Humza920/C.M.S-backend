@@ -18,7 +18,7 @@ const appointmentSchema = new mongoose.Schema(
     endAt: { type: String, required: true },
     status: {
       type: String,
-      enum: ["booked", "checked-in", "completed", "cancelled"],
+      enum: ["booked", "checked-in", "completed"],
       default: "booked",
     },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }

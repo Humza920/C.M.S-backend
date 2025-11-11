@@ -1,19 +1,18 @@
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient")
+const CaseHistory = require("../models/CaseHistory")
+
+// Patient Appointments
 exports.myAppointments = async (req, res) => {
   try {
     const userId = req.user?._id;
     const userRole = req.user?.role;
-
-    // ✅ Check if logged-in user is a patient
     if (!userId || userRole !== "Patient") {
       return res.status(401).json({
         success: false,
         message: "Unauthorized — Only patients can view their appointments.",
       });
     }
-
-    // ✅ Find the patient's record using userId
     const patient = await Patient.findOne({ userId });
     if (!patient) {
       return res.status(404).json({
@@ -21,8 +20,6 @@ exports.myAppointments = async (req, res) => {
         message: "Patient profile not found.",
       });
     }
-
-    // ✅ Find all appointments for this specific patient
     const myAppointments = await Appointment.find({ patientId: patient._id })
       .populate({
         path: "doctorId",
@@ -31,9 +28,7 @@ exports.myAppointments = async (req, res) => {
           select: "userName emailAddress",
         },
       })
-      .sort({ appointmentDate: 1, startAt: 1 }); // upcoming first
-
-    // ✅ If no appointments
+      .sort({ appointmentDate: 1, startAt: 1 });
     if (!myAppointments.length) {
       return res.status(200).json({
         success: true,
@@ -41,8 +36,6 @@ exports.myAppointments = async (req, res) => {
         appointments: [],
       });
     }
-
-    // ✅ Return appointments
     res.status(200).json({
       success: true,
       message: "Your booked appointments fetched successfully!",
@@ -57,3 +50,51 @@ exports.myAppointments = async (req, res) => {
   }
 };
 
+// Patient History
+exports.getMyCaseHistories = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    if (!userId || userRole !== "Patient") {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized — Only patients can view their case histories.",
+      });
+    }
+    const patient = await Patient.findOne({ userId });
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient record not found.",
+      });
+    }
+    const caseHistories = await CaseHistory.find({ patient: patient._id })
+      .populate({
+        path: "doctor",
+        populate: {
+          path: "userId",
+          select: "userName emailAddress",
+        },
+      })
+      .populate("appointment", "appointmentDate startAt endAt status")
+      .sort({ createdAt: -1 });
+    if (!caseHistories.length) {
+      return res.status(200).json({
+        success: true,
+        message: "No case histories found yet.",
+        caseHistories: [],
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Case histories fetched successfully.",
+      caseHistories,
+    });
+  } catch (error) {
+    console.error("Error fetching case histories:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while fetching case histories.",
+    });
+  }
+};

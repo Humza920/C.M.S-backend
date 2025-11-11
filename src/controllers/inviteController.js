@@ -2,6 +2,7 @@ const Invite = require("../models/Invite");
 const { sendMail } = require("../utils/mailer");
 const { createInviteToken } = require("../utils/token");
 
+// Send Invite
 exports.sendInvite = async (req, res) => {
     try {
         const userId = req.user?._id;
@@ -13,19 +14,15 @@ exports.sendInvite = async (req, res) => {
             role,
             roomNumber
         } = req.body;
-
         if (!email || !salary || !role || !roomNumber) {
             return res.status(400).json({
                 success: false,
                 message: "Please fill all required fields including room number",
             });
         }
-
         const { token, tokenHash } = createInviteToken();
         const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
         const respondUrl = `${process.env.FRONTEND_URL}/invite/respond?token=${token}&role=${role}`;
-
         const html = `
       <h3>You are invited to join the Clinic</h3>
       <p><strong>Role:</strong> ${role}</p>
@@ -42,20 +39,17 @@ exports.sendInvite = async (req, res) => {
       </p>
       <p><em>Note: This link will expire on ${tokenExpiresAt.toDateString()}.</em></p>
     `;
-
         const mailResponse = await sendMail({
             to: email,
             subject: "Clinic Invitation",
             html,
         });
-
         if (!mailResponse) {
             return res.status(500).json({
                 success: false,
                 message: "Failed to send email, invite not created.",
             });
         }
-
         await Invite.create({
             email,
             invitedBy: userId,
@@ -68,12 +62,10 @@ exports.sendInvite = async (req, res) => {
             roomNumber,
             status: "Pending",
         });
-
         return res.status(200).json({
             success: true,
             message: "Invite created & email sent successfully.",
         });
-
     } catch (err) {
         console.error(err);
         return res.status(500).json({

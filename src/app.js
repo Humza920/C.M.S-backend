@@ -26,11 +26,4 @@ app.use("/api/appointment" , appointmentRouter)
 app.use("/api/dashboard", dashboardRouter)
 app.use("/api/patient",patientRouter)
 app.use("/api/doctor",doctorRouter)
-
-
-// app.use("/api/income", incomeRouter)
-// app.use("/api/expense", expenseRouter)
-
-
-
 module.exports = app

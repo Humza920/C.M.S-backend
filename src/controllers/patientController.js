@@ -50,34 +50,60 @@ exports.myAppointments = async (req, res) => {
   }
 };
 
-// Patient History
-exports.getMyCaseHistories = async (req, res) => {
+exports.getCaseHistories = async (req, res) => {
   try {
     const userId = req.user?._id;
     const userRole = req.user?.role;
-    if (!userId || userRole !== "Patient") {
+
+    if (!userId || !["Patient", "Doctor"].includes(userRole)) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized — Only patients can view their case histories.",
+        message: "Unauthorized — Only patients or doctors can view case histories.",
       });
     }
-    const patient = await Patient.findOne({ userId });
-    if (!patient) {
-      return res.status(404).json({
-        success: false,
-        message: "Patient record not found.",
-      });
+
+    let caseHistories = [];
+
+    if (userRole === "Patient") {
+      // ✅ Patient perspective
+      const patient = await Patient.findOne({ userId });
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: "Patient record not found.",
+        });
+      }
+
+      caseHistories = await CaseHistory.find({ patient: patient._id })
+        .populate({
+          path: "doctor",
+          populate: { path: "userId", select: "userName emailAddress" },
+        })
+        .populate("appointment", "appointmentDate startAt endAt status")
+        .sort({ createdAt: -1 });
+    } else if (userRole === "Doctor") {
+      // ✅ Doctor perspective
+      const doctor = await Doctor.findOne({ userId });
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: "Doctor record not found.",
+        });
+      }
+
+      caseHistories = await CaseHistory.find({ doctor: doctor._id })
+        .populate({
+          path: "doctor",
+          populate: { path: "userId", select: "userName emailAddress" },
+        })
+        .populate({
+          path: "patient",
+          populate: { path: "userId", select: "userName emailAddress" },
+        })
+        .populate("appointment", "appointmentDate startAt endAt status")
+        .sort({ createdAt: -1 });
     }
-    const caseHistories = await CaseHistory.find({ patient: patient._id })
-      .populate({
-        path: "doctor",
-        populate: {
-          path: "userId",
-          select: "userName emailAddress",
-        },
-      })
-      .populate("appointment", "appointmentDate startAt endAt status")
-      .sort({ createdAt: -1 });
+
     if (!caseHistories.length) {
       return res.status(200).json({
         success: true,
@@ -85,6 +111,7 @@ exports.getMyCaseHistories = async (req, res) => {
         caseHistories: [],
       });
     }
+
     res.status(200).json({
       success: true,
       message: "Case histories fetched successfully.",
@@ -95,6 +122,7 @@ exports.getMyCaseHistories = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error while fetching case histories.",
+      error: error.message,
     });
   }
 };

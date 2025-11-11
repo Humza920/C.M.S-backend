@@ -7,5 +7,5 @@ exports.authorizeRoles = (...roles) => {
       });
     }
     next();
-  }
+  };
 };

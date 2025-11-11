@@ -69,12 +69,14 @@ exports.availableSlots = async (req, res) => {
   try {
     const doctorId = req.params.id;
     const { range } = req.query;
-    if (!range) {
+
+    if (!range || !["week", "month"].includes(range)) {
       return res.status(400).json({
         success: false,
-        message: "Please specify range = week or month"
+        message: "Please specify valid range = week or month",
       });
     }
+
     const doctor = await Doctor.findById(doctorId).select("availableDays availableTime");
     if (!doctor) {
       return res.status(404).json({
@@ -82,11 +84,15 @@ exports.availableSlots = async (req, res) => {
         message: "Doctor not found",
       });
     }
+
     const { availableDays, availableTime } = doctor;
+    console.log(availableDays, availableTime);
+    
     const { start, end } = availableTime;
-    const dailySlots = generateTimeSlots(start, end, 30);
-    const startDate = moment().startOf(range);
-    const endDate = moment().endOf(range);
+
+    const startDate = moment().startOf("day"); 
+    const endDate = moment().endOf(range); // till end of week/month
+
     const appointments = await Appointment.find({
       doctorId,
       appointmentDate: {
@@ -94,32 +100,41 @@ exports.availableSlots = async (req, res) => {
         $lte: endDate.toDate(),
       },
     });
+
     const bookedSet = new Set(
-      appointments.map(a => {
+      appointments.map((a) => {
         const dateStr = moment(a.appointmentDate).format("YYYY-MM-DD");
         return `${dateStr} ${a.startAt} - ${a.endAt}`;
       })
     );
+
     const allAvailable = [];
+
+    // Loop from today -> end of range
     for (let d = moment(startDate); d.isSameOrBefore(endDate); d.add(1, "day")) {
       const currentDate = d.format("YYYY-MM-DD");
       const dayName = d.format("dddd");
 
       if (availableDays.includes(dayName)) {
+        const dailySlots = generateTimeSlots(start, end, 30, currentDate);
+
         const availableForDay = dailySlots.filter(
-          slot => !bookedSet.has(`${currentDate} ${slot}`)
+          (slot) => !bookedSet.has(`${currentDate} ${slot}`)
         );
 
-        allAvailable.push({
-          date: currentDate,
-          day: dayName,
-          availableSlots: availableForDay,
-        });
+        if (availableForDay.length > 0) {
+          allAvailable.push({
+            date: currentDate,
+            day: dayName,
+            availableSlots: availableForDay,
+          });
+        }
       }
     }
+
     return res.status(200).json({
       success: true,
-      message: `Available slots for this ${range}`,
+      message: `Available slots for upcoming ${range}`,
       range,
       totalDays: allAvailable.length,
       slots: allAvailable,
@@ -133,6 +148,7 @@ exports.availableSlots = async (req, res) => {
     });
   }
 };
+
 
 // Cancel Appointment 
 exports.cancelAppointment = async (req, res) => {

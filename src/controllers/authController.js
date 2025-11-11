@@ -12,7 +12,11 @@ const Room = require("../models/Room")
 
 // Register
 exports.register = async (req, res) => {
-  const { userName, emailAddress, password, cnic, invitetoken, role } = req.body;
+  const { userName, emailAddress, password, cnic, token, role } = req.body;
+  console.log(role);
+  console.log(token);
+
+  
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
@@ -20,7 +24,7 @@ exports.register = async (req, res) => {
       throw new Error("Please fill all required fields");
     }
     if (!validator.isEmail(emailAddress)) {
-      throw new Error("Please enter a valid email address");
+      throw new Error("Please enter a valid email address")
     }
     if (!validator.isStrongPassword(password)) {
       throw new Error(
@@ -36,10 +40,11 @@ exports.register = async (req, res) => {
       Number(process.env.SALTED_ROUNDS)
     );
     let user, invite, doctor, room;
-    if (invitetoken && role === "Doctor") {
-      const tokenHash = hashToken(invitetoken);
+    if (token && role === "Doctor") {
+      const tokenHash = hashToken(token);
+      console.log(tokenHash);
+      
       invite = await Invite.findOne({
-        email: emailAddress,
         tokenHash,
         status: "Pending",
       }).session(session);

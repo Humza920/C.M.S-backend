@@ -1,16 +1,24 @@
-function generateTimeSlots(start, end, intervalMinutes) {
+const moment = require("moment");
+
+function generateTimeSlots(start, end, intervalMinutes, currentDate) {
   const slots = [];
   const [startHour, startMinute] = start.split(":").map(Number);
   const [endHour, endMinute] = end.split(":").map(Number);
   const startTotal = startHour * 60 + startMinute;
-  const endTotal = endHour * 60 + endMinute
+  const endTotal = endHour * 60 + endMinute;
+  const isToday = moment(currentDate).isSame(moment(), "day");
+  const now = moment(); 
   for (let time = startTotal; time < endTotal; time += intervalMinutes) {
-    const startH = String(Math.floor(time / 60)).padStart(2, "0");
-    const startM = String(time % 60).padStart(2, "0");
-    const endH = String(Math.floor((time + intervalMinutes) / 60)).padStart(2, "0");
-    const endM = String((time + intervalMinutes) % 60).padStart(2, "0");
-    slots.push(`${startH}:${startM} - ${endH}:${endM}`);
+    const slotStart = moment(`${startHour}:${startMinute}`, "HH:mm")
+      .startOf("day")
+      .add(time, "minutes");
+    const slotEnd = moment(slotStart).add(intervalMinutes, "minutes");
+    if (isToday && slotEnd.isBefore(now)) continue;
+    const formattedSlot = `${slotStart.format("HH:mm")} - ${slotEnd.format("HH:mm")}`;
+    slots.push(formattedSlot);
   }
+
   return slots;
 }
-module.exports = generateTimeSlots
+
+module.exports = generateTimeSlots;

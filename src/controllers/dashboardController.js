@@ -63,3 +63,6 @@ exports.doctorsAllData = async (req, res) => {
     });
   }
 };
+
+
+

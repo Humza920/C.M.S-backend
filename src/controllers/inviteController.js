@@ -22,7 +22,7 @@ exports.sendInvite = async (req, res) => {
         }
         const { token, tokenHash } = createInviteToken();
         const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const respondUrl = `${process.env.FRONTEND_URL}/invite/respond?token=${token}&role=${role}`;
+        const respondUrl = `${process.env.FRONTEND_URL}?token=${token}&role=${role}`;
         const html = `
       <h3>You are invited to join the Clinic</h3>
       <p><strong>Role:</strong> ${role}</p>

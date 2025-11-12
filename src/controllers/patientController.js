@@ -1,7 +1,7 @@
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/Patient")
 const CaseHistory = require("../models/CaseHistory")
-
+const Doctor = require("../models/Doctor")
 // Patient Appointments
 exports.myAppointments = async (req, res) => {
   try {

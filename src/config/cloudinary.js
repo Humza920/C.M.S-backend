@@ -11,7 +11,7 @@ cloudinary.config({
 const uploadToCloudinary = (buffer) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: "ExpenseTracker" },
+      { folder: "CMS" },
       (err, result) => {
         if (err) reject(err);
         else resolve(result);

@@ -6,22 +6,28 @@ const bcrypt = require("bcrypt");
 const validator = require("validator");
 const generateToken = require("../utils/generatetoken");
 const { hashToken } = require("../utils/token")
-// const {uploadToCloudinary} = require("../config/cloudinary")
 const mongoose = require("mongoose");
-const Room = require("../models/Room")
+const Room = require("../models/Room");
+const { uploadToCloudinary } = require("../config/cloudinary");
+const { json } = require("express");
 
 // Register
 exports.register = async (req, res) => {
-  const { userName, emailAddress, password, cnic, token, role } = req.body;
+  let uploadResult
+  const { userName, emailAddress, password, cnic, token, role} = req.body;
+  const file = req.file
+  console.log(file);
   console.log(role);
   console.log(token);
-
+  if (file) {
+    uploadResult = await uploadToCloudinary(file.buffer)
+  }
   
   const session = await mongoose.startSession();
-  session.startTransaction();
+  session.startTransaction()
   try {
     if (!userName || !emailAddress || !password || !cnic) {
-      throw new Error("Please fill all required fields");
+      throw new Error("Please fill all required fields")
     }
     if (!validator.isEmail(emailAddress)) {
       throw new Error("Please enter a valid email address")
@@ -83,6 +89,7 @@ exports.register = async (req, res) => {
             roomId: room._id,
             availableDays: invite.invitedDays,
             availableTime: invite.invitedTime,
+            profileImg : uploadResult.secure_url
           },
         ],
         { session }
@@ -123,6 +130,7 @@ exports.register = async (req, res) => {
         [
           {
             userId: user._id,
+            profileImg : uploadResult.secure_url
           },
         ],
         { session }
@@ -268,87 +276,119 @@ exports.completeProfile = async (req, res) => {
   try {
     const userId = req.user?._id;
     const userRole = req.user?.role;
+
+    let uploadResult = null;
+
+    // Upload only if file exists
+    if (req.file) {
+      uploadResult = await uploadToCloudinary(req.file.buffer);
+    }
+
     if (!userId || !userRole) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized access. User not found in request.",
       });
     }
+
+    // ---------------- PATIENT ----------------
     if (userRole === "Patient") {
-      const {
+      let {
         age,
         gender,
         bloodGroup,
         address,
-        // profileImg,
         phoneNumber,
         emergencyContact,
         medicalHistory,
         allergies,
       } = req.body;
+      emergencyContact = JSON.parse(emergencyContact)
+      allergies = JSON.parse(allergies)
+      
+
+      const updateData = {
+        age,
+        gender,
+        bloodGroup,
+        address,
+        phoneNumber,
+        emergencyContact,
+        medicalHistory,
+        allergies,
+      };
+
+      // Add profileImg only if new file uploaded
+      if (uploadResult) {
+        updateData.profileImg = uploadResult.secure_url;
+      }
+
       const patient = await Patient.findOneAndUpdate(
         { userId },
-        {
-          $set: {
-            age,
-            gender,
-            bloodGroup,
-            address,
-            // profileImg,
-            phoneNumber,
-            emergencyContact,
-            medicalHistory,
-            allergies,
-          },
-        },
+        { $set: updateData },
         { new: true, runValidators: true }
       );
+
       if (!patient) {
         return res.status(404).json({
           success: false,
           message: "Patient record not found. Please contact admin.",
         });
       }
+
       await User.findByIdAndUpdate(userId, { isProfileComplete: true });
+
       return res.status(200).json({
         success: true,
         message: "Patient profile updated successfully.",
         data: patient,
       });
     }
+
+    // ---------------- DOCTOR ----------------
     if (userRole === "Doctor") {
-      const {
+      let {
         gender,
         phoneNumber,
         specialization,
         qualification,
         experience,
         about,
-        profileImg,
         fees,
         availableDays,
         availableTime,
         location,
         averageRating,
       } = req.body;
+
+            availableDays = JSON.parse(availableDays)
+            availableTime = JSON.parse(availableTime)
+            location = JSON.parse(location)
+
+      const updateData = {
+        gender,
+        phoneNumber,
+        specialization,
+        qualification,
+        experience,
+        about,
+        fees,
+        availableDays,
+        availableTime,
+        location,
+        averageRating,
+      };
+
+
+      
+      // Update only if file uploaded
+      if (uploadResult) {
+        updateData.profileImg = uploadResult.secure_url;
+      }
+
       const doctor = await Doctor.findOneAndUpdate(
         { userId },
-        {
-          $set: {
-            gender,
-            phoneNumber,
-            specialization,
-            qualification,
-            experience,
-            about,
-            profileImg,
-            fees,
-            availableDays,
-            availableTime,
-            location,
-            averageRating,
-          },
-        },
+        { $set: updateData },
         { new: true, runValidators: true }
       );
 
@@ -358,6 +398,7 @@ exports.completeProfile = async (req, res) => {
           message: "Doctor record not found. Please contact admin.",
         });
       }
+
       await User.findByIdAndUpdate(userId, { isProfileComplete: true });
 
       return res.status(200).json({
@@ -371,6 +412,7 @@ exports.completeProfile = async (req, res) => {
       success: false,
       message: "Invalid user role. Only Doctor or Patient allowed.",
     });
+
   } catch (error) {
     console.error("Error in completeProfile:", error.message);
     return res.status(500).json({

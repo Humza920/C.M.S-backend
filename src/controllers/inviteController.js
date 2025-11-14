@@ -12,8 +12,7 @@ function timeToMinutes(timeStr) {
     if (time.endsWith("AM")) time = time.replace("AM", "").trim();
     if (isPM) time = time.replace("PM", "").trim()
 
-    const [hours, minutes] = time.split(":").map(Number);
-
+    const [hours, minutes] = time.split(":").map(Number)
     let totalHours = hours;
     if (isPM && hours < 12) totalHours += 12;
     if (!isPM && hours === 12 && timeStr.toUpperCase().includes("AM")) totalHours = 0;

@@ -11,11 +11,11 @@ function generateTimeSlots(start, end, intervalMinutes, currentDate) {
   for (let time = startTotal; time < endTotal; time += intervalMinutes) {
     const slotStart = moment(`${startHour}:${startMinute}`, "HH:mm")
       .startOf("day")
-      .add(time, "minutes");
+      .add(time, "minutes")
     const slotEnd = moment(slotStart).add(intervalMinutes, "minutes");
     if (isToday && slotEnd.isBefore(now)) continue;
     const formattedSlot = `${slotStart.format("HH:mm")} - ${slotEnd.format("HH:mm")}`;
-    slots.push(formattedSlot);
+    slots.push(formattedSlot)
   }
 
   return slots;

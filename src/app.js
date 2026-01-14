@@ -1,6 +1,9 @@
 const express = require("express")
 const cors = require("cors")
+const dotenv = require("dotenv")
+dotenv.config()
 const cookieParser = require("cookie-parser")
+const connectionWithDb = require("./config/db")
 const authRouter = require("./routes/authRoutes")
 const inviteRouter = require("./routes/inviteRoutes")
 const appointmentRouter = require("./routes/appointmentRoutes")
@@ -18,8 +21,9 @@ app.use(
     credentials: true,
   })
 );
-
 app.use(cookieParser())
+
+connectionWithDb()
 app.use("/api/auth", authRouter)
 app.use("/api/invite" , inviteRouter)
 app.use("/api/appointment" , appointmentRouter)

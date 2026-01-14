@@ -1,16 +1,11 @@
-const dotenv = require("dotenv");
-dotenv.config();
+const dotenv = require("dotenv")
+const connectionWithDb = require("./src/config/db")
+const app = require("./src/app")
+dotenv.config()
+console.log("MONGO_URI =>", process.env.URL_OF_DATABASE);
+connectionWithDb()
 
-const connectionWithDb = require("./src/config/db");
-const app = require("./src/app");
+const port = process.env.PORT || 5000
 
-const port = process.env.PORT || 5000;
-
-const startServer = async () => {
-  await connectionWithDb();   // ⬅️ MUST WAIT
-  app.listen(port, () => {
-    console.log(`🚀 Server running on port ${port}`);
-  });
-};
-
-startServer();
+app.listen(port, () => console.log(`🚀 Server running`)
+)
